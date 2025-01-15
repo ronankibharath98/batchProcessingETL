@@ -19,7 +19,6 @@ try:
     engine = create_engine(
         f"postgresql://{pg_config['user']}:{pg_config['password']}@{pg_config['host']}:{pg_config['port']}/{pg_config['dbname']}"
     )
-    conn = engine.connect()
     st.success("Connected to PostgreSQL successfully!")
 except Exception as e:
     st.error(f"Error connecting to PostgreSQL: {e}")
@@ -42,7 +41,7 @@ query_total_sales = """
         d.year, d.month, s.store_location;
 """
 try:
-    df_total_sales = pd.read_sql(query_total_sales, conn)
+    df_total_sales = pd.read_sql(query_total_sales, engine)
     st.write("Total Sales Across Time and Regions:")
     st.dataframe(df_total_sales)
 except Exception as e:
@@ -68,7 +67,7 @@ query_product_sales = f"""
         total_quantity_sold DESC;
 """
 try:
-    df_product_sales = pd.read_sql(query_product_sales, conn)
+    df_product_sales = pd.read_sql(query_product_sales, engine)
     st.write("Most and Least Sold Products (Descending by Quantity Sold):")
     st.dataframe(df_product_sales)
 except Exception as e:
@@ -92,7 +91,7 @@ query_inventory_turnover = """
         avg_stock_level DESC;
 """
 try:
-    df_inventory_turnover = pd.read_sql(query_inventory_turnover, conn)
+    df_inventory_turnover = pd.read_sql(query_inventory_turnover, engine)
     st.write("Inventory Turnover Across Stores and Products:")
     st.dataframe(df_inventory_turnover)
 except Exception as e:
@@ -116,12 +115,12 @@ query_product_performance = """
         total_sales DESC;
 """
 try:
-    df_product_performance = pd.read_sql(query_product_performance, conn)
+    df_product_performance = pd.read_sql(query_product_performance, engine)
     st.write("Product Performance Across Regions:")
     st.dataframe(df_product_performance)
 except Exception as e:
     st.error(f"Error fetching Product Performance data: {e}")
 
 # Close PostgreSQL connection
-conn.close()
+# conn.close()
 st.success("Data visualization completed successfully!")

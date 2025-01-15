@@ -89,24 +89,7 @@ dim_date.repartition(10).write.mode("overwrite").parquet(CURATED_DIM_DATE_PATH)
 dim_date.write.jdbc(url=POSTGRES_URL, table="dim_date", mode="overwrite", properties=POSTGRES_PROPERTIES)
 
 # Step 2: Create `DimStore` with SCD Type 2
-# Clear cache and refresh metadata for HDFS path
-spark.catalog.clearCache()
-spark.catalog.refreshByPath(CURATED_DIM_STORE_PATH)
-
-# Check if the HDFS path exists, and remove it to avoid stale metadata issues
-try:
-    hdfs_exists = spark._jsparkSession.sessionState().catalog().tableExists(CURATED_DIM_STORE_PATH)
-    if hdfs_exists:
-        print("Removing existing DimStore path to avoid conflicts.")
-        spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
-            .delete(spark._jvm.org.apache.hadoop.fs.Path(CURATED_DIM_STORE_PATH), True)
-except Exception as e:
-    print(f"Warning: Failed to refresh or remove existing path: {e}")
-
-# Read existing DimStore data
 existing_dim_store = read_existing_data(CURATED_DIM_STORE_PATH)
-
-# Generate DimStore with SCD Type 2 logic
 dim_store = staging_df.select(
     "store_id",
     "store_location",
@@ -123,31 +106,12 @@ dim_store_scd = apply_scd_type_2(
     update_columns=["store_location", "reorder_point", "lead_time_days", "carrying_cost", "stock_out_risk"]
 )
 
-# Write DimStore SCD data to HDFS and PostgreSQL
+# Write to HDFS and PostgreSQL
 dim_store_scd.repartition(10).write.mode("overwrite").parquet(CURATED_DIM_STORE_PATH)
 dim_store_scd.write.jdbc(url=POSTGRES_URL, table="dim_store", mode="overwrite", properties=POSTGRES_PROPERTIES)
 
-print("DimStore SCD processing completed successfully!")
-
 # Step 3: Create `DimProduct` with SCD Type 2
-# Refresh HDFS metadata and clear cache
-spark.catalog.refreshByPath(CURATED_DIM_PRODUCT_PATH)
-spark.catalog.clearCache()
-
-# Check if the HDFS path exists, and remove it to avoid stale metadata issues
-try:
-    hdfs_exists = spark._jsparkSession.sessionState().catalog().tableExists(CURATED_DIM_PRODUCT_PATH)
-    if hdfs_exists:
-        print("Removing existing DimStore product to avoid conflicts.")
-        spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
-            .delete(spark._jvm.org.apache.hadoop.fs.Path(CURATED_DIM_PRODUCT_PATH), True)
-except Exception as e:
-    print(f"Warning: Failed to refresh or remove existing path: {e}")
-
-# Read existing DimProduct data
 existing_dim_product = read_existing_data(CURATED_DIM_PRODUCT_PATH)
-
-# Generate DimProduct with SCD Type 2 logic
 dim_product = staging_df.select(
     "product_id",
     "product_category",
@@ -161,38 +125,11 @@ dim_product_scd = apply_scd_type_2(
     update_columns=["product_category", "unit_price"]
 )
 
-# Ensure no overwrite conflicts by removing existing data if necessary
-try:
-    spark.catalog.refreshByPath(CURATED_DIM_PRODUCT_PATH)
-    hdfs_exists = spark._jsparkSession.sessionState().catalog().tableExists(CURATED_DIM_PRODUCT_PATH)
-    if hdfs_exists:
-        print("Removing existing DimProduct path to avoid conflicts.")
-        spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
-            .delete(spark._jvm.org.apache.hadoop.fs.Path(CURATED_DIM_PRODUCT_PATH), True)
-except Exception as e:
-    print(f"Warning: Failed to refresh or remove existing path: {e}")
-
-# Write DimProduct to HDFS and PostgreSQL
+# Write to HDFS and PostgreSQL
 dim_product_scd.repartition(10).write.mode("overwrite").parquet(CURATED_DIM_PRODUCT_PATH)
 dim_product_scd.write.jdbc(url=POSTGRES_URL, table="dim_product", mode="overwrite", properties=POSTGRES_PROPERTIES)
 
 # Step 4: Create `FactSales`
-
-# Clear cache and refresh metadata for HDFS path
-spark.catalog.clearCache()
-spark.catalog.refreshByPath(CURATED_FACT_PATH)
-
-# Check if the HDFS path exists, and remove it to avoid stale metadata issues
-try:
-    hdfs_exists = spark._jsparkSession.sessionState().catalog().tableExists(CURATED_FACT_PATH)
-    if hdfs_exists:
-        print("Removing existing FactSales path to avoid conflicts.")
-        spark._jvm.org.apache.hadoop.fs.FileSystem.get(spark._jsc.hadoopConfiguration()) \
-            .delete(spark._jvm.org.apache.hadoop.fs.Path(CURATED_FACT_PATH), True)
-except Exception as e:
-    print(f"Warning: Failed to refresh or remove existing path: {e}")
-
-# Create FactSales DataFrame
 fact_sales = staging_df.select(
     "transaction_id",
     "date",
@@ -203,9 +140,8 @@ fact_sales = staging_df.select(
     "stock_level"
 )
 
-# Write FactSales to HDFS and PostgreSQL
+# Write to HDFS and PostgreSQL
 fact_sales.repartition(20).write.mode("overwrite").parquet(CURATED_FACT_PATH)
 fact_sales.write.jdbc(url=POSTGRES_URL, table="fact_sales", mode="overwrite", properties=POSTGRES_PROPERTIES)
-print("FactSales processing completed successfully!")
 
 print("Curated layer processing with SCD Type 2 completed successfully!")
